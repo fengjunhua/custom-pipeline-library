@@ -1,0 +1,126 @@
+@Library('custom-pipeline-library@master') _
+
+String GIT_URL = "git@192.101.10.9:"+"${PROJECT_NAME}"+"/${SERVICE_NAME}"+".git"
+
+node("devops-jenkins-S102"){
+      
+      stage("checkout code"){
+
+         checkout ([$class: 'GitSCM', branches: [[name: "$BRANCH_NAME"]], 
+                  doGenerateSubmoduleConfigurations: false, extensions: [], 
+                  submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'fengjunhua', 
+                  url: "$GIT_URL"]]])
+
+         
+         checkout([$class: 'GitSCM', branches: [[name: "$BRANCH_NAME"]],
+              doGenerateSubmoduleConfigurations: false,
+              extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: "${RelativeDirectory}"]],
+              submoduleCfg: [],
+              userRemoteConfigs: [[credentialsId: "${credentialsId}",
+                                   url: "${gitRepoUrl}"]]])
+
+      }
+      
+      stage("build"){
+
+         def NPM_HOME = "/opt/node"
+         sh """
+         rm -rf ./node_modules
+         rm -rf package-lock.json 
+         ${NPM_HOME}/bin/npm cache clear --force
+         ${NPM_HOME}/bin/npm install
+         ${NPM_HOME}/bin/npm run build
+         """
+
+      }
+      
+      stage("codesafe"){
+         codesafe (
+            audit: true, 
+            excludedDir: '', 
+            excludedFile: '', 
+            language: [
+              $class: 'Java', 
+              bugTemplate: [pkTemplate: 18], 
+              checkBug: true, 
+              checkReference: false, 
+              checkStandard: false, 
+              hasBugAim: false, 
+              hasStandardAim: false, 
+              isJ2ee: 'Y', 
+              jdkVersion: 4, 
+              pjType: [$class: 'MavenProject']
+            ], 
+            mybug: false, 
+            pjPermOther: false, 
+            useOwnServerCredentials: false, 
+            waitForResults: false,
+            
+            credentialsId: 'devops-codesafe', 
+            projectName: "${PROJECT_NAME}-${SERVICE_NAME}",
+            projectDesc: 'mirsp代码审计', 
+            pjLeader: 'fengjunhua',
+            pjPermUserList: 'guodashuang'
+          )
+        
+      }
+
+      stage("scantist"){
+
+         sh """
+         export SCANTISTTOKEN=e588a1b7-2962-4043-bf1d-01eb586ce128
+         export SCANTIST_IMPORT_URL=http://100.5.6.58:8237/ci-scan/
+         java -jar /opt/scantist/scantist-bom-detect.jar
+         """
+
+      }
+
+      stage("sonnar"){
+         def scanHome = "/opt/sonar-scanner"
+         
+         sh """
+         ${scanHome}/bin/sonar-scanner -Dsonar.projectKey="${PROJECT_NAME}-${SERVICE_NAME}" \
+                -Dsonar.projectName="${PROJECT_NAME}-${SERVICE_NAME}" \
+                -Dsonar.projectDescription='cpsdcdevops' \
+                -Dsonar.sources=.  \
+                -Dsonar.sourceEncoding=UTF-8 \
+                -Dsonar.language=js  
+
+         """
+      }
+      
+      stage("docker"){
+
+         def BUILD_TIME = utils.getBuildTime()
+         def BUILD_TAG = "${ENV}-${BUILD_ID}-${BUILD_TIME}"
+         def ImageName = "192.101.10.113/${PROJECT_NAME}/${SERVICE_NAME}:${BUILD_TAG}"
+         
+         sh """
+         docker build -t ${ImageName} .
+         docker push ${ImageName}
+         docker rmi ${ImageName}
+         """
+         
+         /*
+         script {
+              docker.withServer('tcp://192.101.11.192:2375') {
+              def myImage = docker.build("192.101.10.113/mirsp/post-oss:${BUILD_ID}","./post-oss/")
+                  docker.withRegistry("http://192.101.10.113","docker.harbor"){
+                   myImage.push()
+                  }
+              }  
+         }
+         */
+      }
+
+      stage("deploy"){
+      
+         sh """
+
+         ansible k8s-manager -m script  -a "/root/shell-scripts/service-deploy.sh -O deploy -P mirsp -S mirsp-oss -T ${BUILD_ID}"
+         
+         """
+
+      }
+      
+ }

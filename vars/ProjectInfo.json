@@ -1,0 +1,20 @@
+
+{
+
+    "mirsp.post-oss":{
+        "Department":"信科架构平台部", 
+        "ProjectName":"信科架构平台部-架构.oss",
+        "Description":"互联网项目",
+        "ProjectLeader":"guozhilong",
+        "ProjectMembers":"liujiaming",
+        "EmailList":"liujiaming@chinapost.com.cn"
+        },
+    "mirsp.post-quzsy":{
+        "Department":"信科架构平台部",
+        "ProjectName":"信科架构平台部-架构.quzsy",
+        "Description":"互联网项目",
+        "ProjectLeader":"guozhilong",
+        "ProjectMembers":"liujiaming",
+        "EmailList":"liujiaming@chinapost.com.cn"}
+
+}

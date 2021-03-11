@@ -1,0 +1,18 @@
+@Library('custom-pipeline-library@develop') _
+
+String HARBOR_API = "http://192.101.10.113/api/v2.0/"
+
+node("devops-jenkins-S102"){
+      
+      stage("checkout"){
+
+         log.info("checkout code")
+
+         sh """
+         curl -X GET "http://192.101.10.113/api/v2.0/projects" -H "accept: application/json" -H "X-Harbor-CSRF-Token: OjCAZTwYTpSKjH0sLuGIXV9Z+F+fP4bn8FRpgtnJqjtNSqfdaVn9R0yWWvF0C5lEyOYRPq/ShPFPsrE7EoRcXQ=="
+         """
+
+
+      } 
+      
+ }
